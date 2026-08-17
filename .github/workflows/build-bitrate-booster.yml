@@ -1,0 +1,92 @@
+name: Build Zoron Bitrate Booster
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build arm64 iOS framework and dylib
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+          mkdir -p build/ZoronBitrateBooster.framework build/dylib
+
+          SWIFT_FILES="$(find Sources/ZoronBitrateBooster -name '*.swift' -print | sort)"
+          test -n "$SWIFT_FILES"
+
+          clang -c Sources/ZoronBitrateBooster/ZoronEntry.c \
+            -target arm64-apple-ios15.0 \
+            -isysroot "$SDK_PATH" \
+            -o build/ZoronEntry.o
+
+          swiftc -target arm64-apple-ios15.0 \
+            -sdk "$SDK_PATH" \
+            -emit-library \
+            -emit-module \
+            -module-name ZoronBitrateBooster \
+            -O \
+            -Xlinker -install_name \
+            -Xlinker @rpath/ZoronBitrateBooster.framework/ZoronBitrateBooster \
+            $SWIFT_FILES build/ZoronEntry.o \
+            -o build/ZoronBitrateBooster.framework/ZoronBitrateBooster
+
+          cat > build/ZoronBitrateBooster.framework/Info.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDevelopmentRegion</key><string>en</string>
+            <key>CFBundleExecutable</key><string>ZoronBitrateBooster</string>
+            <key>CFBundleIdentifier</key><string>com.zoron.ZoronBitrateBooster</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundleName</key><string>ZoronBitrateBooster</string>
+            <key>CFBundlePackageType</key><string>FMWK</string>
+            <key>CFBundleShortVersionString</key><string>1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>MinimumOSVersion</key><string>15.0</string>
+          </dict>
+          </plist>
+          EOF
+          plutil -lint build/ZoronBitrateBooster.framework/Info.plist
+
+          swiftc -target arm64-apple-ios15.0 \
+            -sdk "$SDK_PATH" \
+            -emit-library \
+            -module-name ZoronBitrateBooster \
+            -O \
+            -Xlinker -install_name \
+            -Xlinker @rpath/ZoronBitrateBooster.dylib \
+            $SWIFT_FILES build/ZoronEntry.o \
+            -o build/dylib/ZoronBitrateBooster.dylib
+
+      - name: Package artifacts
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/ZoronBitrateBooster.framework build/ZoronBitrateBooster-iOS-Framework.zip
+          ditto -c -k --sequesterRsrc --keepParent build/dylib/ZoronBitrateBooster.dylib build/ZoronBitrateBooster-iOS-Dylib.zip
+
+      - name: Upload framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZoronBitrateBooster-iOS-Framework
+          path: build/ZoronBitrateBooster-iOS-Framework.zip
+          if-no-files-found: error
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZoronBitrateBooster-iOS-Dylib
+          path: build/ZoronBitrateBooster-iOS-Dylib.zip
+          if-no-files-found: error
