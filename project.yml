@@ -1,0 +1,24 @@
+name: ZoronBitrateBooster
+options:
+  bundleIdPrefix: com.zoron
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  SWIFT_VERSION: "5.9"
+  IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+  ENABLE_BITCODE: "NO"
+
+targets:
+  ZoronBitrateBooster:
+    type: framework
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - Sources/ZoronBitrateBooster
+    settings:
+      MACH_O_TYPE: mh_dylib
+      PRODUCT_BUNDLE_IDENTIFIER: com.zoron.ZoronBitrateBooster
+      INFOPLIST_FILE: Sources/ZoronBitrateBooster/Info.plist
+      DEFINES_MODULE: YES
+      DYLIB_INSTALL_NAME_BASE: "@rpath"
+      OTHER_LDFLAGS: ["-framework", "AVFoundation", "-framework", "VideoToolbox", "-framework", "UIKit"]
